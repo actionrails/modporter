@@ -1,0 +1,7 @@
+1. Install libapreq 2.10 RC1 from :
+
+- http://people.apache.org/~bojan/libapreq2-2.10-RC1.tar.gz
+
+2. Install mod_porter
+  
+  - Just type 'rake' from mod_porter directory

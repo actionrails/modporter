@@ -1,0 +1,9 @@
+.libs/*
+mod_upload.la
+mod_upload.lo
+mod_upload.o
+mod_upload.slo
+mod_porter.la
+mod_porter.lo
+mod_porter.o
+mod_porter.slo
