@@ -293,9 +293,9 @@ apr_status_t porter_handle_upload(porter_upload_request_t *ur, apreq_param_t *p)
   if (size == 0)
   {
     // There was no file, or at least it had no name, so let's
-    // treat it like a text area
-    PORTER_LOG("Appears there was no file, passing control to porter_handle_parameter");
-    return porter_handle_parameter(ur, p);
+    // just skip it.
+    PORTER_LOG("Appears there was no file, skipping the parameter");
+    return APR_SUCCESS;
   }
   PORTER_LOG("Appears there was a file, continuing");
   
