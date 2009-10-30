@@ -57,6 +57,7 @@ typedef struct porter_server_conf {
   apr_uint64_t minimum_multipart_size;
   const char *secret;
   apr_fileperms_t permission;
+  const char *directory;
 } porter_server_conf;
 
 extern module AP_MODULE_DECLARE_DATA porter_module;
@@ -68,7 +69,7 @@ apr_status_t porter_handle_parameter(porter_upload_request_t *ur, apreq_param_t 
 apr_status_t porter_handle_parameter(porter_upload_request_t *ur, apreq_param_t *param);
 apr_status_t porter_handle_upload(porter_upload_request_t *ur, apreq_param_t *p);
 char *porter_sign_filename(porter_upload_request_t *ur, apr_finfo_t *finfo);
-apr_status_t porter_stream_file_to_disk(apr_pool_t *pool, apreq_param_t *p, apr_finfo_t *finfo);
+apr_status_t porter_stream_file_to_disk(apr_pool_t *pool, apreq_param_t *p, apr_finfo_t *finfo, const char *path);
 apr_status_t porter_append_sub_parameter(apr_pool_t *pool, apr_bucket_brigade *bb,
                                      const char *parent_param,
                                      const char *sub_param,
@@ -314,7 +315,7 @@ apr_status_t porter_handle_upload(porter_upload_request_t *ur, apreq_param_t *p)
   }
 
   // Write the actual upload to disk
-  PORTER_HANDLE_ERROR(porter_stream_file_to_disk(pool, p, &finfo));
+  PORTER_HANDLE_ERROR(porter_stream_file_to_disk(pool, p, &finfo, config->directory));
 
   // Set appropriate tempfile permissions
   PORTER_HANDLE_ERROR(apr_file_perms_set(finfo.fname, config->permission));
@@ -345,13 +346,14 @@ char *porter_sign_filename(porter_upload_request_t *ur, apr_finfo_t *finfo)
 // Creates a temporary file and copies the contents of the upload to it.
 // Populates finfo with the file info for the temporary file.
 apr_status_t porter_stream_file_to_disk(apr_pool_t *pool, apreq_param_t *p,
-                                    apr_finfo_t *finfo)
+                                    apr_finfo_t *finfo,
+                                    const char *path)
 {
   apr_status_t rv;
   apr_file_t *temp_file;
   apr_off_t len;
 
-  PORTER_HANDLE_ERROR(apreq_file_mktemp(&temp_file, pool, NULL));
+  PORTER_HANDLE_ERROR(apreq_file_mktemp(&temp_file, pool, path));
   PORTER_HANDLE_ERROR(apreq_brigade_fwrite(temp_file, &len, p->upload));
   PORTER_HANDLE_ERROR(apr_file_info_get(finfo, APR_FINFO_NORM, temp_file));
 
@@ -454,12 +456,27 @@ static const char* porter_set_file_permission(cmd_parms *cmd, void *dir, const c
   return NULL;
 }
 
+static const char* porter_set_directory(cmd_parms *cmd, void *dir, const char *argument)
+{
+  porter_server_conf *config = (porter_server_conf *)ap_get_module_config(cmd->server->module_config, &porter_module);
+
+  const char *error = ap_check_cmd_context(cmd, NOT_IN_LIMIT);
+
+  if (error != NULL) {
+    return error;
+  }
+
+  config->directory = argument;
+  return NULL;
+}
+
 // FIXME Make sure server doesn't start if PorterSharedSecret is not given and Porter is on
 static const command_rec porter_commands[] = {
   AP_INIT_FLAG("Porter", porter_enable_upload, NULL, RSRC_CONF, "Enable or Disable the module. Default : Off") ,
   AP_INIT_TAKE1("PorterMinSize", porter_set_minimum_multipart_size, NULL, RSRC_CONF, "Set mininum content length to kick in parsing. Default : 0"),
   AP_INIT_TAKE1("PorterSharedSecret", porter_set_shared_secret, NULL, RSRC_CONF, "Set shared secret for signing parameters."),
   AP_INIT_TAKE1("PorterPermission", porter_set_file_permission, NULL, RSRC_CONF, "Set permission for temporary files. Default : 0x0666"),
+  AP_INIT_TAKE1("PorterDir", porter_set_directory, NULL, RSRC_CONF, "Set directory for temporary files. Default : default apache tmp directory"),
   {NULL}
 };
 
