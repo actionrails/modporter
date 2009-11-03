@@ -272,7 +272,6 @@ apr_status_t porter_handle_upload(porter_upload_request_t *ur, apreq_param_t *p)
   const char *content_disposition;
   const char *file_name;
   const char *content_type;
-  const char *temp_file_path;
   const char *signature;
 
   apr_size_t size;
