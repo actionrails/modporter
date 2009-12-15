@@ -342,19 +342,28 @@ char *porter_sign_filename(porter_upload_request_t *ur, apr_finfo_t *finfo)
 }
 
 
-// Creates a temporary file and copies the contents of the upload to it.
+// Creates a temporary file and copies the contents of the upload to it,
+// or, if available, uses the spool file already created by Apache.
 // Populates finfo with the file info for the temporary file.
 apr_status_t porter_stream_file_to_disk(apr_pool_t *pool, apreq_param_t *p,
                                     apr_finfo_t *finfo)
 {
   apr_status_t rv;
-  apr_file_t *temp_file;
-  apr_off_t len;
-
-  PORTER_HANDLE_ERROR(apreq_file_mktemp(&temp_file, pool, NULL));
-  PORTER_HANDLE_ERROR(apreq_brigade_fwrite(temp_file, &len, p->upload));
-  PORTER_HANDLE_ERROR(apr_file_info_get(finfo, APR_FINFO_NORM, temp_file));
-
+  apr_file_t *spool_file = apreq_brigade_spoolfile(p->upload);
+  if(spool_file == NULL)
+  {
+    //The upload brigade is not related to a spool file. Write out to a new file.
+    apr_file_t *temp_file;
+    apr_off_t length;
+    PORTER_HANDLE_ERROR(apreq_file_mktemp(&temp_file, pool, NULL));
+    PORTER_HANDLE_ERROR(apreq_brigade_fwrite(temp_file, &length, p->upload));
+    PORTER_HANDLE_ERROR(apr_file_info_get(finfo, APR_FINFO_NORM, temp_file));
+  }
+  else
+  {
+    //The upload is already spooled into a file. Use it.
+    PORTER_HANDLE_ERROR(apr_file_info_get(finfo, APR_FINFO_NORM, spool_file));
+  }
   return APR_SUCCESS;
 }
 
